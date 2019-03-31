@@ -1,0 +1,406 @@
+---
+title: "Homework 3"
+author: "Diego Saráchaga"
+date: "February 19, 2019"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+
+```{r setup, include=FALSE}
+
+library(tidyverse)
+library(lubridate)
+library(magrittr)
+library(Lahman)
+library(babynames)
+library(kableExtra)
+
+```
+### Exercise 2
+
+We would like to create a data frame like the babynames data frame, but for baseball players.
+
+----
+
+#### Part a) 
+##### _Question:_
+ Use the Master data frame in the Lahman package to create a tibble with similar variables as the babynames data frame (i.e., year, name, and n), and ordered in the same way.
+ You will need to use the summarize() function to get the counts of each name's use (according to the nameFirst variable). For year, use the year of birth.   
+ 
+----
+
+##### _Answer:_
+First I check how each data frame looks like.
+
+```{r prelim_2a, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+head(babynames)
+head(Master)
+```
+
+
+----   
+
+Then, I create a query to obtain what it is asked in this part. In this query, I group by __birthYear__ and __nameFirst__, and omit those years and names that are _NA_, because they do not add any value in this case.    
+
+
+```{r part_2a, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+Master.babynames <- Master %>%
+  mutate(year = birthYear,name = nameFirst) %>% 
+  filter(!is.na(year)&!is.na(name)) %>%
+  group_by(year, name) %>% 
+  summarize(n = n()) %>% 
+  select(year, name, n) %>% 
+  arrange(desc(n))
+
+Master.babynames
+```   
+
+----   
+
+#### Part b) 
+##### _Question:_
+In the Master dataframe, is the variable birthYear consistent with the year in birthDate?
+Use a function in the lubridate package to extract the year, and then use pipes and the table() function to see how often the first equals the second.   
+
+----   
+
+##### _Answer:_
+In this part, using pipes I create a table, where first I extract the year from the _birthDate_, and then, using a filter, I checked in which occasions the year of _birthDate_ and _birthYear_ are different for each row.   
+Finally, I print the table to check how many inconsistencies there are.
+
+```{r part_2b, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+Master.yearCheck <- Master %>% 
+  mutate(yearBirthDate = year(ymd(birthDate))) %>% 
+   filter(birthYear != yearBirthDate) %>%
+  {table(.$birthYear, .$yearBirthDate)} 
+
+Master.yearCheck
+```   
+
+
+Since the table created to check the consistency between _birthYear_ and the year in _birthDate_ is __empty__ (0 x 0), __the years in both variables is consistent__.
+
+---   
+
+#### Part c) 
+##### _Question:_
+Create a data frame of players showing just the playerID, first name, last name, given name, and career total (meaning, summed over all years and all stints) of games (that is, the G variable) according to the Fielding data frame.
+
+----   
+
+##### _Answer:_
+First I check how _Fielding_ data frame looks like.
+
+```{r prelim_2c, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+head(Fielding)
+```
+
+----   
+
+Then, I create the query to obtain what is asked in this part. 
+In this case, first I select the variables _(playerID, nameFirst, nameLast, givenName)_ I need from the data frame _Master_. I change the variables' names to follow the names in the question. This selection is called _Master.name_. 
+Then, I use the data frame _Fielding_ and group by the variable _playerID_, and sum the total games (*variable G*), for each player. This selection is called _Fielding.G_.
+After that, I do a left join so I can keep all the variables from _Master.name_, and add the amount of games for each player from _Fielding.G_.
+Finally, using _head()_, I print the first rows to check the data.
+
+
+```{r part_2c, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+Master.name <- Master %>% 
+  select(playerID, "first name" = nameFirst, "last name" = nameLast, "given name" = nameGiven)
+Fielding.G <- Fielding %>% 
+  group_by(playerID) %>%
+  summarize("career total" = sum(G)) 
+
+player_careerTotal <- left_join(Master.name,Fielding.G)
+
+head(player_careerTotal)
+```   
+
+---   
+
+#### Part d) 
+##### _Question:_
+Using mutate() and str_c(), add a variable to your data frame in (c) for full name by
+combining the rst name and last name with a space between them.
+
+----   
+
+##### _Answer:_
+As requested in this part, using the date frame from __part c)__, using *str_c()* I create a new column that corresponds to the full name of each player, combining the first and last name with a space in between.   
+Using _head()_, I print the first rows to check the data.   
+
+```{r part_2d, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+fullName <- player_careerTotal %>% 
+  mutate("full name" = str_c(`first name`, ' ', `last name`))
+  
+head(fullName)
+```
+
+
+---   
+
+#### Part e) 
+##### _Question:_
+Use the data frames you've created to determine the 5 most popular rst names in baseball among players who played at least 500 games. That is, rst use the data frame from (c) to determine the set of players who played at least 500 games. Then create a data frame similar to (a), expect here, only consider the players who played at least 500 games. From them, determine the 5 most popular rst names across all years. Plot them over time with lines in a single plot. Be sure to make the plot look nice by using a title and changing the axis labels if necessary.
+
+----   
+
+##### _Answer:_
+First, using the data frame created in __part c)__, *player_careerTotal*, I filter those players with at least 500 games, creating a new data frame, _players500_.   
+
+```{r part_2e1, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+players500 <- player_careerTotal %>% 
+  filter (`career total` >= 500) 
+```
+
+----   
+
+The other information needed is in _Master.babynames_ from __part a)__.   
+So, I use __semi_join__ between _players500_ and _Master.babynames_, to get the new data frame with the top 5 names of __players with at least 500 games__. This data frame is called _topNames_.   
+
+
+```{r part_2e2, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+topNames <- semi_join(Master.babynames, players500, by = c("name" = "first name")) %>%
+  group_by(name) %>% 
+  summarize(total = sum(n)) %>% 
+  top_n(5, total) %>% 
+  arrange(desc(total))
+```
+
+----   
+
+After that, I do another __semi_join__ between _topNames_ and _Master.babynames_, so I just keep the history of only the top 5 popular names. This data frame is called _topNames.history_.   
+
+```{r part_2e3, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+topNames.history <- semi_join(Master.babynames, topNames, by = c("name" = "name"))
+```
+
+----  
+
+Finally, I plot how the names appeared through history. I use *geom_smooth()* instead of *geom_line()*, because when using the latter, the plot was not clear, but with *geom_smooth()*, it looks nicer and it is easier to see the trend of each name through history.
+
+```{r part_2e4, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+
+topNames.history %>%
+  ggplot(aes(year, n, colour = name)) + 
+  ggtitle("Most popular names through the years") + 
+  xlab("Year") + 
+  ylab("Total") + 
+  scale_colour_discrete(name = "name", labels = topNames %>% select(name)) +
+  geom_smooth()
+
+```
+
+----   
+
+
+### Exercise 3
+
+We would like to answer some questions about the NYC Restaurant Inspections dataset.   
+
+----
+
+#### Part a) 
+##### _Question:_
+Using the violation_description variable, how many of the violations were issued for having a rodent related issue? To do this, search for the words "rodent", "mice", and "rat" using the appropriate command from the stringr library and tally their sum.
+Are restaurant owners more likely to get cited for rats or mice? Are there any cases of restaurants that are cited for both rats and mice? (Remember that the same restaurant can have multiple violations).   
+
+
+----
+
+##### _Answer:_
+First, I import the restaurants' data, I check how the data frame looks like.
+
+```{r prelim_3a, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+restaurants <- read_csv('https://data.cityofnewyork.us/api/views/9w7m-hzhe/rows.csv?accessType=DOWNLOAD&bom=true&query=select+*')
+head(restaurants)
+```
+
+----   
+
+Then, I checked how many violations were issued for having rodents. For this, I create a string called __rodents__, where I put all the possible values to search for rodents ( __rodent__, __mice__, __rat__), and then filter which violation descriptions have these words.
+Finally, with _nrow()_, I count how many violations where issued.   
+
+
+
+```{r part_3a1, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+rodents <- c("rodent|mice|rat")
+restaurants.rodents <- restaurants %>% 
+  filter(str_detect(restaurants$`VIOLATION DESCRIPTION`, rodents)) 
+  
+nrow(restaurants.rodents)
+```
+   
+   
+There are __`r nrow(restaurants.rodents)`__ cited for _rodents violation_.
+
+----   
+
+For the next part of this question, I first create a data frame called __restaurants.rat__, where I only filter those violation descriptions that have _rat_ in them, and count how many violations for rats there were.   
+
+
+```{r part_3a2, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+restaurants.rat <- restaurants %>% 
+  filter(str_detect(restaurants$`VIOLATION DESCRIPTION`, "rat"))
+  
+nrow(restaurants.rat)
+```
+
+----   
+
+Next, similarly to the previous part, I create a data frame called __restaurants.mice__, where I only filter those violation descriptions that have _mice_ in them, and count how many violations for mice there were.   
+
+```{r part_3a3, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+restaurants.mice <- restaurants %>% 
+  filter(str_detect(restaurants$`VIOLATION DESCRIPTION`, "mice"))
+  
+nrow(restaurants.mice)
+```
+  
+   
+We have __`r nrow(restaurants.rat)`__ _rat violations_, and __`r nrow(restaurants.mice)`__ _mice violations_. So, __restaurants are more cited for rats__
+
+----   
+
+In the final part of the question, it is asked to check which restaurants have been cited for both rats and mice.   
+For the final part of this question, I do a __semi_join__ between the data frames created before, _restaurants.rat_ and _restaurants.mice_, so I can check which are the restaurants that had been cited for both, rats and mice. Then I count how many different restaurants are in the join.   
+
+
+```{r part_3a4, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+restaurants.rat_mice <- 
+  semi_join(restaurants.rat %>% select(DBA), restaurants.mice %>% select(DBA), by = c("DBA" = "DBA")) 
+
+nrow(unique(restaurants.rat_mice))
+nrow(restaurants.rat_mice)
+```
+
+There are __`r nrow(unique(restaurants.rat_mice))` restaurants__ that have been cited for both __rat and mice violation__, with a total of __`r nrow(restaurants.rat_mice)` citations__.
+
+
+----   
+    
+#### Part b) 
+##### _Question:_
+Do the same thing as above, but look for violations involving insects. That is, search for "roach" and flies. Which violation is more common? Are there any cases of restaurants that are cited for both roaches and flies?
+
+
+----
+
+##### _Answer:_
+
+Similar to __part a)__, I checked how many violations were issued for having insects. For this, I create a string called __insects__, where I put all the possible values to search for insects ( __roach__, __flies__), and then filter which violation descriptions have these words.
+Finally, with _nrow()_, I count how many violations where issued.   
+
+```{r part_3b1, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+insects <- c("roach|flies")
+restaurants.insects <- restaurants %>% 
+  filter(str_detect(restaurants$`VIOLATION DESCRIPTION`, insects)) 
+
+nrow(restaurants.insects)
+```
+
+There are __`r nrow(restaurants.insects)`__ restaurants that have been cited for _insects violation_.
+
+----   
+
+Then, I check how many violations were for _roaches_.
+
+```{r part_3b2, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+restaurants.roach <- restaurants %>% 
+  filter(str_detect(restaurants$`VIOLATION DESCRIPTION`, "roach"))
+
+nrow(restaurants.roach)
+```
+
+There are __`r nrow(restaurants.roach)`__ citations for _roaches violation_.
+
+----   
+
+Now, I check how many violations were for _flies_.
+
+
+```{r part_3b3, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+restaurants.flies <- restaurants %>% 
+  filter(str_detect(restaurants$`VIOLATION DESCRIPTION`, "flies"))
+
+nrow(restaurants.flies)
+```
+
+There are __`r nrow(restaurants.flies)`__ citations for _flies violation_.
+
+----
+
+According to the previous results, restaurants __have been more cited for flies than for roaches__.
+
+----
+
+For the last part, for checking how many restaurants have been cited for both, I did a __semi_join__ between the previous the data frames. I count unique rows to get how many restaurants are.
+
+```{r part_3b4, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+restaurants.both_insects <- 
+  semi_join(restaurants.roach %>% select(DBA), restaurants.flies %>% select(DBA), by = c("DBA" = "DBA"))
+
+nrow(unique(restaurants.both_insects))
+nrow(restaurants.both_insects)
+```
+
+There are __`r nrow(unique(restaurants.both_insects))` restaurants__ that have been cited for both __roaches and flies violation__, with a total of __`r nrow(restaurants.both_insects)` citations__.
+
+----   
+
+
+#### Part c) 
+##### _Question:_
+Are there any restaurants that have been cited for both rodents and insects?
+
+
+----
+
+##### _Answer:_
+For checking how many restaurants have been cited for both _rodents_ and _insects_, I did a __semi_join__ between the previous the data frames, _restaurants.insects_ and _restaurants.rodents_. Then I check how many unique restaurants there are.
+
+```{r part_3c, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+restaurants.bothR_I <- 
+  semi_join(restaurants.rodents %>% select(DBA), restaurants.insects %>% select(DBA), by = c("DBA" = "DBA")) 
+  
+nrow(unique(restaurants.bothR_I))
+nrow(restaurants.bothR_I)
+
+```
+
+
+There are __`r nrow(unique(restaurants.bothR_I))` restaurants__ that have been cited for both _insects and rodents' violation_, with a total of __`r nrow(restaurants.bothR_I)` citations__ .
+
+----   
+
+
+#### Part d) 
+##### _Question:_
+Using the boro variable, rank the five boroughs according to the total number of rodent and/or insect violations.
+
+
+----
+
+##### _Answer:_
+To check which are the top boroughs, I created a query grouping by the variable _BORO_. After that, I use the __library kable__ to show the ranking in a nicer way.
+
+```{r part_3d1, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+boro_violations <- c("rodent|mice|rat|roach|flies")
+restaurants.boro <- restaurants %>% 
+  filter(str_detect(restaurants$`VIOLATION DESCRIPTION`, boro_violations)) %>% 
+  group_by(BORO) %>%
+  summarize(total = n()) %>%
+  top_n(5, total) %>% 
+  arrange(desc(total))
+
+```
+
+The top 5 ranking of boroughs are:
+
+```{r part_3d2, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE, echo=FALSE}
+restaurants.boro
+```
+
+

@@ -1,0 +1,27 @@
+Problem 1
+There is an inconsistency between vertices 2 and 0, they should be different
+There is an inconsistency between vertices 4 and 5, they should be different
+The total inconsistencies are: 2
+There are 6 judgments that are consistent
+
+Problem 2
+Testing conclusions
+The conclusions are inconsistent.
+
+
+Problem 2
+Testing conclusions1
+The conclusions are inconsistent.
+
+Problem 2
+Testing conclusions2
+The conclusions are consistent. A possible set of dates are: 
+birth of 0: 100
+death of 0: 150
+birth of 1: 200
+birth of 2: 250
+death of 2: 300
+death of 1: 350
+
+
+//The other requirements of the assigment are commented in the code.

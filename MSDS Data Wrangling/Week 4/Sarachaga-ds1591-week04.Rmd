@@ -1,0 +1,195 @@
+---
+title: "Homework 4"
+author: "Diego Saráchaga"
+date: "February 27, 2019"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+
+```{r setup, include=FALSE}
+
+library(tidyverse)
+library(lubridate)
+library(magrittr)
+library(Lahman)
+library(babynames)
+library(kableExtra)
+library(printr)
+
+
+```
+### Exercise 2   
+
+
+I first download the data and take a look at the structure.    
+
+
+----
+```{r prelim_2a, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+phd_field <- read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-02-19/phd_by_field.csv")
+head(phd_field)
+
+```
+
+-----
+
+#### Part a) 
+##### _Question:_   
+
+
+Split the data by major_field and use map() to calculate, by major_field, the R^2 (i.e., the coeficient of determination) for the linear model n_phds ~ year + field. Using ggplot2, make a set of boxplots of R2 by broad_field. Comment on what you find. 
+
+----
+
+##### _Answer:_
+
+For the first part of the question, as asked, I use map() to calculate. I saved this data frame in __phd_field_major__ for later.   
+Then, using __phd_field_major__, I join it by __major_field__, to get the plot requested.   
+
+
+
+```{r part_2a, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+phd_field_major = na.omit(phd_field %>% split(.$major_field) %>% 
+  map(~ lm(n_phds ~ year + field, data = .)) %>% 
+  map(summary) %>% 
+  map_dbl("r.squared"))
+
+phd_field_major
+
+phd_field_major %>% 
+  tibble(major_field = names(.), slope = .) %>%
+  left_join(.,phd_field) %>%
+  select(broad_field,slope) %>%
+  ggplot(aes(broad_field, slope)) + geom_boxplot(color = 'dodgerblue4', fill="deepskyblue3") +
+  theme(axis.text.x = element_text(angle = 45))
+
+
+
+```
+
+
+----   
+
+What we can see here is that most broad fields have a similar slope, except, perhaps, for _Education_, but it is not an important difference. So, we can say that the broad fields trully have a similar R^2 on each majors.
+
+
+
+
+----   
+
+#### Part b) 
+##### _Question:_
+Using min_rank(desc()), for each field, rank each year by the number of PhDs awarded. For each major_field, rank each field by number of PhDs awarded (aggregated over all years). For each broad_field, rank each year by number of PhDs awarded (aggregated over all fields).
+
+----   
+
+##### _Answer:_
+
+For the first request, I use the function *min_rank()* to get the result.    
+
+
+```{r part_2b1, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+year_rank = na.omit(phd_field %>% mutate(field_rank = min_rank(desc(n_phds))) %>%
+  arrange(field, field_rank))
+
+head(year_rank)
+```
+
+----   
+
+For the second one, I use also *min_rank()*, but I aggregate the data frame in order to get the desired results.   
+
+
+```{r part_2b2, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+na.omit(phd_field %>%
+  group_by(major_field,field) %>% 
+  summarize(total_n_phds = sum(na.omit(n_phds))) %>%
+  mutate(field_rank = min_rank(desc(total_n_phds))) %>%
+  arrange(major_field,field, field_rank))
+```
+
+
+----   
+
+For the last request, I do something similar as before but with the new restrictions.   
+
+
+```{r part_2b3, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+na.omit(phd_field %>%
+  group_by(broad_field,year) %>% 
+  summarize(total_n_phds = sum(na.omit(n_phds))) %>%
+  mutate(field_rank = min_rank(desc(total_n_phds))) %>%
+  arrange(broad_field,year, field_rank))
+```   
+
+
+---   
+
+#### Part c) 
+##### _Question:_
+For each field, find every year with more PhDs awarded than the previous year. Find the quartiles for number of PhDs awarded by broad_field.
+
+----   
+
+##### _Answer:_
+As it was showed in the lecture, I use the fucntion _filter()_ combined with _lag()_ in order to find the years with more PHDs than the year before for each field.   
+
+```{r part_2c1, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+
+phd_field %>%
+  group_by(field,year) %>% 
+  summarize(total_n_phds = sum(na.omit(n_phds))) %>%
+  arrange(field, year, total_n_phds) %>%
+  filter (total_n_phds > lag(total_n_phds))
+``` 
+
+----
+
+For the second part, I use the _quartile()_ function inside the *group_by()* in order to get the quartiles by __broad_field__.
+
+```{r part_2c2, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+na.omit(phd_field %>%
+  group_by(broad_field, quartile = ntile(n_phds, 4)) %>%
+  summarize(total_n_phds = sum(na.omit(n_phds))))
+
+```   
+
+---   
+
+#### Part d) 
+##### _Question:_   
+
+Write a function that inputs a character string for broad_field and returns the signal-to-noise ratio (i.e., mean divided by standard deviation) aggregated over eld and year. Also, write the function so that an error message is displayed if the character input does not belong to broad_field.
+
+----   
+
+##### _Answer:_
+In this question, I construct the function with the requisites asked, and finally I called two times, one with the correct string and another with a wrong one to test both cases.
+
+```{r part_2d, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+signa_to_noise_ratio <-function(string)
+{
+  
+  if (string %in% phd_field$broad_field)
+  {
+    
+    sub = na.omit(phd_field[which(phd_field$broad_field==string),])
+    sig_noise_ratio = mean(sub$n_phds)/sd(sub$n_phds)
+    paste("The signal-to-noise ratio for", string, "is" , sig_noise_ratio)
+  }
+  else print("The string is not a valid broad_field")
+  
+}
+
+```
+
+```{r part_2d1, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+signa_to_noise_ratio("Life sciences")
+```
+
+```{r part_2d2, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+signa_to_noise_ratio("Data Science")
+```
+

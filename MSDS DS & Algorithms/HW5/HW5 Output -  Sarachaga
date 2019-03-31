@@ -1,0 +1,27 @@
+Please enter method
+1. Add
+2. Print Keys By Level
+3. Delete
+4. Delete Alternative
+5. Test me
+9. Exit
+5
+Before:
+K 
+D Q 
+B F M S 
+A C E G L null R V 
+
+After:
+G 
+D Q 
+B F M S 
+A C E null null null R V 
+
+Please enter method
+1. Add
+2. Print Keys By Level
+3. Delete
+4. Delete Alternative
+5. Test me
+9. Exit

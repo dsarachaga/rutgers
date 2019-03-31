@@ -1,0 +1,71 @@
+---
+title: "Homework 2"
+author: "Diego Saráchaga"
+date: "February 11, 2019"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(magrittr)
+library(lubridate)
+
+tv <- read_csv('https://github.com/rfordatascience/tidytuesday/raw/master/data/2019/2019-01-08/IMDb_Economist_tv_ratings.csv')
+```
+
+### Exercise 2
+
+----
+
+#### Part a)
+__R Code:__   
+```{r prelim, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+tv %>% filter(genres == "Action,Adventure,Drama", date > ymd("17/1/1")) %>% 
+  group_by(title, seasonNumber, date) %>% 
+  arrange(desc(av_rating))
+```
+
+__Conclusion:__   
+After 2017 in the category _"Action,Adventure,Drama"_, the show that had the highest average rating was _Game of Thrones_ in its __7th season__, with an __average rating of 9.3__.
+
+   
+----
+
+#### Part b)
+__R Code:__   
+```{r prelim2, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+dat <- filter(tv, title == "Law & Order" | title == "Law & Order: Special Victims Unit")
+ggplot(dat, aes(date, av_rating, color = title)) + 
+  geom_point() + geom_line() + geom_smooth() +
+  ggtitle(expression("Date and Avg Rating"~italic("Law & Order")~"vs"~italic("Law & Order: Special Victims Unit"))) + 
+  xlab("Date") + 
+  ylab("Avg Rating")
+```
+---
+__Comments:__   
+First, we can see that _Law & Order_ seasons were from __1991 to 2010__, while _Law & Order: Special Victims Unit_ started on __2000 and continues till 2018__.  
+Then, in the plot we can see that from its begining _Law & Order: Special Victims Unit_ has had a __higher rating__ than _Law & Order_ when they where both on air. However, on __season 16 (year 2015)__, _Law & Order: Special Victims Unit_ had its __worst rating__, that is also the worst rating if we consider the history of both shows.
+
+----
+
+#### Part c)
+__R Code:__   
+```{r prelim3, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+dat <- filter(tv, title == "Criminal Minds")
+ggplot(dat, aes(date, av_rating, color = title)) + 
+  geom_point() + geom_line() + geom_smooth() +
+  ggtitle(expression("Date and Avg Rating"~italic("Criminal Minds")))+
+  xlab("Date") + 
+  ylab("Avg Rating")
+```
+
+---
+__Comments:__   
+First, we can see that _Criminal Minds_ seasons were from __2006 till 2018__.  
+Then, in the plot we can see that from the begining until the year 2016 the average rating __was mostly declining__, with the exception of season 2. Moreover, in 2016 _Criminal Minds_ reached its worst average rating in the show's history.   
+However, the last 3 ratings __have increased__ compared to the previous ratings.   
+Finally, we can see that in 2018 (last 2 ratings), __the show presented its highest historically average rating__.
