@@ -1,15 +1,4 @@
 #Data Wrangling project
-<<<<<<< Updated upstream
-=======
-
-#websites
-# https://ritetag.com/best-hashtags-for/shopping
-# https://developer.twitter.com/en/apps
-# https://developer.twitter.com/en/account/get-started
-# https://towardsdatascience.com/access-data-from-twitter-api-using-r-and-or-python-b8ac342d3efe
-# https://rpubs.com/chrisbrunsdon/twitterclouds
-
->>>>>>> Stashed changes
 
 #websites
 # https://ritetag.com/best-hashtags-for/shopping
@@ -36,18 +25,11 @@ library(ggmap)
 library(igraph)
 library(ggraph)
 library(wordcloud)
-<<<<<<< HEAD
 library(jsonlite)
 
 set.seed(1)
 
 # Getting API's keys
-=======
-
-set.seed(1)
-
-# Twitter API
->>>>>>> ede05628ae91c94bff3ac54de7532423beba929b
 source("API-keys.R")
 
 twitter_token <- create_token(
@@ -336,12 +318,8 @@ names(hashtagFreq) = c("hashtag", "freq")
 png("wordcloud_packages.png", width=1280,height=800)
 suppressWarnings(wordcloud(hashtagFreq$hashtag,
           hashtagFreq$freq, 
-<<<<<<< HEAD
           scale=c(8,.3),
           min.freq=2,
-=======
-          scale=c(8,.3),min.freq=2,
->>>>>>> ede05628ae91c94bff3ac54de7532423beba929b
           max.words=Inf, 
           random.order=FALSE, 
           rot.per=.15, 
@@ -364,3 +342,17 @@ corrplot(res, type = "upper", order = "hclust",
 
 #There is a slight positive correlation between temperature and weather condition
 #Non of the weather variables seem to have a correlation with the amount of tweets. Moreover, they all have a weak negative linear relationship.
+
+
+aux = df_delivery.final %>%
+  count(Temperature, sort = TRUE) %>%
+  top_n(20) %>%
+  arrange(Temperature)
+
+
+ggplot(aes(x = Temperature, y = n)) +
+  geom_bar(stat="identity", fill = rgb(0, .3, .7, .75)) + 
+  coord_flip() +
+  labs(x = "Count",
+       y = "Temperature",
+       title = "What was the Temperature when the Tweets was written?")
