@@ -25,11 +25,18 @@ library(ggmap)
 library(igraph)
 library(ggraph)
 library(wordcloud)
+<<<<<<< HEAD
 library(jsonlite)
 
 set.seed(1)
 
 # Getting API's keys
+=======
+
+set.seed(1)
+
+# Twitter API
+>>>>>>> ede05628ae91c94bff3ac54de7532423beba929b
 source("API-keys.R")
 
 twitter_token <- create_token(
@@ -318,8 +325,12 @@ names(hashtagFreq) = c("hashtag", "freq")
 png("wordcloud_packages.png", width=1280,height=800)
 suppressWarnings(wordcloud(hashtagFreq$hashtag,
           hashtagFreq$freq, 
+<<<<<<< HEAD
           scale=c(8,.3),
           min.freq=2,
+=======
+          scale=c(8,.3),min.freq=2,
+>>>>>>> ede05628ae91c94bff3ac54de7532423beba929b
           max.words=Inf, 
           random.order=FALSE, 
           rot.per=.15, 
