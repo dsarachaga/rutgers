@@ -1,14 +1,13 @@
-#Data Wrangling project
+---
+title: "Data Wrangling Final Project"
+author: "Diego Sarachaga"
+date: "5/6/2019"
+output: html_document
+---
 
-#websites
-# https://ritetag.com/best-hashtags-for/shopping
-# https://developer.twitter.com/en/apps
-# https://developer.twitter.com/en/account/get-started
-# https://towardsdatascience.com/access-data-from-twitter-api-using-r-and-or-python-b8ac342d3efe
-# https://rpubs.com/chrisbrunsdon/twitterclouds
+```{r setup, include=FALSE, echo = FALSE}
 
-
-knitr::opts_chunk$set(echo=TRUE)
+knitr::opts_chunk$set(include = FALSE)
 library(dplyr)
 library(lubridate)
 library(magrittr)
@@ -25,13 +24,38 @@ library(ggmap)
 library(igraph)
 library(ggraph)
 library(wordcloud)
-library(jsonlite)
+library(corrplot)
+
 
 set.seed(1)
-
 # Getting API's keys
 source("API-keys.R")
+```
 
+## Final Project
+
+#Introduction
+
+For this project the goal is to use the historical weather data from www.wunderground.com of a particular city, in this case, New York, combined with data obtained from the Twitter API.
+
+What I am going to do is to analyze if the climate affects whether if people buy more or less. To do this, I will obtain the most common hashtags use by people when they are buying, for example #bought. Once I start working, I will analyze which are the best hashtags, and if the best analysis is for retail shopping, eating at restaurants or food delivery.
+
+ 
+
+According to the Twitter API, every tweet has date and location information (if the location was shared), so I can use the location to join it with the climate data.
+
+Moreover, each tweet has a coordinates, allowing to locate in a map where people buy.
+
+ 
+
+The data sources will be:
+
+https://www.wunderground.com/weather/us/ny/new-york-city (Links to an external site.)Links to an external site.
+https://developer.twitter.com/en/docs/tweets/data-dictionary/overview/tweet-object (Links to an external site.)Links to an external site. (in this case, using this I will obtain an API key to work)
+ 
+
+
+```{r gettingTweets, error=TRUE, message=FALSE, warning=FALSE, include=FALSE}
 twitter_token <- create_token(
   app = appname,
   consumer_key = consumer_key,
@@ -41,7 +65,6 @@ twitter_token <- create_token(
 )
 
 identical(twitter_token, get_token())
-
 
 rt.1 <- search_tweets(
   q = "\"food delivery\" -filter:retweets -filter:quote",
@@ -58,11 +81,15 @@ rt.2 <- search_tweets(
 )
 
 rt = rbind(rt.1, rt.2)
+```
 
-nrow(rt.1)
-nrow(rt.2)
-nrow(rt)
 
+
+```{r showTweets, echo=FALSE, error=TRUE, message=FALSE, warning=FALSE}
+head(rt, 1)
+```
+
+```{r cleaningTweets, error=TRUE, message=FALSE, warning=FALSE, include=FALSE}
 # Getting the first day from the Twitter response
 if ((month(min(rt$created_at)) < 10) &(day(min(rt$created_at)) < 10)){
     first_date = paste0(toString(year(min(rt$created_at))),'0', toString(month(min(rt$created_at))),'0', toString(day(min(rt$created_at))))
@@ -72,7 +99,6 @@ if ((month(min(rt$created_at)) < 10) &(day(min(rt$created_at)) < 10)){
     first_date = paste0(toString(year(min(rt$created_at))), toString(month(min(rt$created_at))), toString(day(min(rt$created_at))))
     }
   
-
 # Getting the last day from the Twitter response
 if ((month(max(rt$created_at)) < 10) &(day(max(rt$created_at)) < 10)){
   last_date = paste0(toString(year(max(rt$created_at))),'0', toString(month(max(rt$created_at))),'0', toString(day(max(rt$created_at))))
@@ -103,8 +129,9 @@ nrow(rt.NYC)
 rt.NYC = rt.NYC %>%
   mutate(created_at = round_date(created_at, unit = 'hour'))
 
+```
 
-
+```{r weatherAPI, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE, echo = FALSE}
 # Weather information
 weather_url = paste0("https://api.weather.com/v1/geocode/40.77/-73.86/observations/historical.json?apiKey=",weatherAPI,"&startDate=",first_date,"&endDate=",last_date,"&units=e")
 weather_raw <- weather_url %>% read_html()
@@ -112,13 +139,15 @@ weather_raw <- weather_url %>% read_html()
 df_tbl_weather <- weather_raw %>%
   html_text() %>%
   # what we got here is a JSON file, and use jsonlite to parse it.
-  fromJSON() %>% .[["observations"]] %>%
+  jsonlite::fromJSON() %>% .[["observations"]] %>%
   select(valid_time_gmt, ## Time
          temp,           ## Temperature
          dewPt,          ## Dew Point
          rh,             ## Humidity
          wdir_cardinal,  ## Wind
          wspd,           ## Wind Speed
+         gust,           ## Wind Gust
+         pressure,       ## Pressure
          precip_hrly,    ## Precip.
          precip_total,   ## Precip Accum
          wx_phrase       ## Condition 
@@ -134,81 +163,82 @@ head(df_tbl_weather)
 # Rounding the hours to facilitate the analysis.
 df_tbl_weather = df_tbl_weather %>%
   mutate(Time = round_date(Time, unit = 'hour'))
+```
 
 
-#
+```{r gettingWeather, error = TRUE, message = FALSE, warning = FALSE, eval = TRUE, echo = FALSE}
 colnames(rt.NYC)
 
 df_delivery = rt.NYC[, c("created_at", "text", "source", "hashtags", "lang", "country", "country_code", "geo_coords", "coords_coords", "location")]
 
-
 df_weather = df_tbl_weather[, c("Time", "Temperature", "Precip.", "Precip Accum", "Condition")]
-
 
 df_delivery.final <- left_join(df_delivery,df_weather, by = c("created_at" = "Time"))
 
 df_delivery.final <- df_delivery.final[complete.cases(df_delivery.final[ , "Temperature"]),]
+```
 
-
-
+```{r plot1, echo=FALSE, error=TRUE, message=FALSE, warning=FALSE}
 df_delivery.final %>%
   count(location, sort = TRUE) %>%
   mutate(location = reorder(location, n)) %>%
   top_n(20) %>%
   ggplot(aes(x = location, y = n)) +
-  geom_col() +
+  geom_col(stat="identity", fill = rgb(0, .3, .7, .75)) + 
   coord_flip() +
   labs(x = "Count",
        y = "Location",
-       title = "Where Twitter users are from - unique locations ")
+       title = "Where the Tweets where written from - unique locations?")
+```
 
 
-
+```{r plot2, echo=FALSE, error=TRUE, message=FALSE, warning=FALSE}
 df_delivery.final %>%
   count(Temperature, sort = TRUE) %>%
   mutate(Temperature = reorder(Temperature, n)) %>%
   top_n(20) %>%
   ggplot(aes(x = Temperature, y = n)) +
-  geom_col() +
+  geom_col(stat="identity", fill = rgb(0, .3, .7, .75)) + 
   coord_flip() +
   labs(x = "Count",
-       y = "Location",
-       title = "Where Twitter users are from - unique locations ")
+       y = "Temperature",
+       title = "What was the Temperature when the Tweets was written?")
+```
 
+```{r plot3, echo=FALSE, error=TRUE, message=FALSE, warning=FALSE}
 df_delivery.final %>%
   count(Precip., sort = TRUE) %>%
   mutate(Precip. = reorder(Precip., n)) %>%
   top_n(20) %>%
   ggplot(aes(x = Precip., y = n)) +
-  geom_col() +
+  geom_col(stat="identity", fill = rgb(0, .3, .7, .75)) + 
   coord_flip() +
   labs(x = "Count",
-       y = "Location",
-       title = "Where Twitter users are from - unique locations ")
+       y = "Precipitation",
+       title = "Was it raining when the Tweet was written?")
 
-unique(df_delivery.final$Condition)
+```
+
+```{r plot4, echo=FALSE, error=TRUE, message=FALSE, warning=FALSE}
 
 df_delivery.final %>%
   count(Condition, sort = TRUE) %>%
   mutate(Condition = reorder(Condition, n)) %>%
   top_n(20) %>%
   ggplot(aes(x = Condition, y = n)) +
-  geom_col() +
+  geom_bar(fill = rgb(0, .3, .7, .75), stat = "identity") +
   coord_flip() +
   labs(x = "Count",
-       y = "Location",
-       title = "Where Twitter users are from - unique locations ")
+       y = "Precipitation",
+       title = "What was the weather condition when the Tweet was written?")
+```
 
-
-
+```{r map, echo=FALSE, error=TRUE, message=FALSE, warning=FALSE}
 df_delivery.final <- lat_lng(df_delivery.final)
-
 
 get_map(location = c(-73.94,40.78), zoom = 12) %>% 
   ggmap() +
   geom_point(data = df_delivery.final, aes(x = lng, y = lat), col = rgb(0, .3, .7, .75), size=3, alpha=0.5)
-
-
 #plot the density map
 get_map(location = c(-73.94,40.78), zoom = 12) %>% 
   ggmap() +
@@ -216,31 +246,41 @@ get_map(location = c(-73.94,40.78), zoom = 12) %>%
   aes(x = lng, y = lat, fill = ..level.., alpha = ..level..*2), 
   size = 2, bins = 5, data = df_delivery.final, geom = "polygon") +
   scale_fill_gradient()
+```
 
+```{r plot5, echo=FALSE, error=TRUE, message=FALSE, warning=FALSE}
+ts_plot(df_delivery.final) +
+theme(plot.title = ggplot2::element_text(face = "bold")) +
+  labs(
+    x = NULL, y = NULL,
+    title = "Frequency of hashtags used in Tweets per days"
+  )
 
-ts_plot(df_delivery.final)
 ## plot time series of tweets
 ts_plot(df_delivery.final, "3 hours") +
-  theme_minimal() +
   theme(plot.title = ggplot2::element_text(face = "bold")) +
   labs(
     x = NULL, y = NULL,
-    title = "Frequency of #rstats Twitter statuses from past 9 days",
-    subtitle = "Twitter status (tweet) counts aggregated using three-hour intervals",
-    caption = "\nSource: Data collected from Twitter's REST API via rtweet"
+    title = "Frequency of hashtags used in Tweets 9 days",
+    subtitle = "Twitter status (tweet) counts aggregated using three-hour intervals"
   )
 
+```
 
+```{r plot6, echo=FALSE, error=TRUE, message=FALSE, warning=FALSE}
 df_delivery.final %>% 
   group_by(source)%>% 
   summarise(Total=n()) %>% 
   arrange(desc(Total)) %>% 
   head(10) %>%
-  ggplot(aes(reorder(source, Total), Total, fill = source)) + geom_bar(stat="identity", fill = rgb(0, .3, .7, .75)) + 
+  ggplot(aes(reorder(source, Total), Total, fill = source)) + 
+  geom_bar(stat="identity", fill = rgb(0, .3, .7, .75)) + 
   coord_flip() + 
   labs(title="Top Tweet Sources", x="", subtitle="There were more tweets coming from iPhone Vs Android smartphones", caption = "\nSource: Data collected from Twitter's REST API via rtweet")+
   theme_minimal()
+```
 
+```{r textAnalysis, echo=FALSE, error=TRUE, message=FALSE, warning=FALSE}
 
 # First, remove http elements manually
 df_delivery.final$stripped_text <- gsub("http.*","", df_delivery.final$text)
@@ -268,19 +308,19 @@ cleaned_tweet_words %>%
   labs(y = "Count",
        x = "Unique words",
        title = "Most Common words found in #delivery tweets",
-       subtitle = '"delivery220" , "Stipe" and "stipemiocicdelivery" tops our most used words"', caption = "\nSource: Data collected from Twitter's REST API via rtweet") + 
+       subtitle = '"delivery" , "pay" and "paper" tops our most used words"', caption = "\nSource: Data collected from Twitter's REST API via rtweet") + 
   theme_minimal() + 
   theme(legend.position = "") 
+```
 
-
-
+```{r wordNetwork, echo=FALSE, error=TRUE, message=FALSE, warning=FALSE}
 # remove punctuation, convert to lowercase, add identity for each tweet!
 delivery_tweets_paired_words <- df_delivery.final %>%
   select(stripped_text) %>%
   unnest_tokens(paired_words, stripped_text, token = "ngrams", n = 2)
 
-delivery_tweets_paired_words %>%
-  count(paired_words, sort = TRUE)
+#delivery_tweets_paired_words %>%
+#  count(paired_words, sort = TRUE)
 
 delivery_tweets_separated_words <- delivery_tweets_paired_words %>%
   separate(paired_words, c("word1", "word2"), sep = " ")
@@ -292,7 +332,6 @@ delivery_tweets_filtered <- delivery_tweets_separated_words %>%
 # new bigram counts:
 delivery_words_counts <- delivery_tweets_filtered %>%
   count(word1, word2, sort = TRUE)
-
 
 # plot #delivery word network
 delivery_words_counts %>%
@@ -306,8 +345,9 @@ delivery_words_counts %>%
        subtitle = "Text mining twitter data ",
        x = "", y = "", caption = "\nSource: Data collected from Twitter's REST API via rtweet") + theme_minimal()
 
+```
 
-
+```{r hashtagAnalysis, echo=FALSE, error=TRUE, message=FALSE, warning=FALSE}
 hashtagFreq = tolower(as_vector(df_delivery.final$hashtags)) %>% 
   table() %>% 
   as.data.frame() %>% 
@@ -318,14 +358,14 @@ names(hashtagFreq) = c("hashtag", "freq")
 png("wordcloud_packages.png", width=1280,height=800)
 suppressWarnings(wordcloud(hashtagFreq$hashtag,
           hashtagFreq$freq, 
-          scale=c(8,.3),
-          min.freq=2,
+          scale=c(8,.3),min.freq=10,
           max.words=Inf, 
           random.order=FALSE, 
           rot.per=.15, 
           colors=brewer.pal(6, "Dark2")))
+```
 
-
+```{r correlationAnalysis, echo=FALSE, error=TRUE, message=FALSE, warning=FALSE}
 groups = unique(df_delivery.final$Condition)
 df_delivery.final$ConditionAsNum = as.numeric(factor(df_delivery.final$Condition, levels=groups))
 
@@ -336,9 +376,16 @@ df_delivery.cor = df_delivery.final %>%
 
 res = round(cor(df_delivery.cor),2)
 
-library(corrplot)
 corrplot(res, type = "upper", order = "hclust", 
          tl.col = "black", tl.srt = 45)
 
 #There is a slight positive correlation between temperature and weather condition
 #Non of the weather variables seem to have a correlation with the amount of tweets. Moreover, they all have a weak negative linear relationship.
+
+
+```
+
+
+
+
+
